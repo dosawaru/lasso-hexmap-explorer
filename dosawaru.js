@@ -1,8 +1,16 @@
 let isPlaying = false;
 let finance_data = [];
-let selectedScale = "";
+let selectedScale;
 let yearSelected;
 let selectedAttribute = "";
+
+const range = (start, end) =>
+  Array.from({ length: Math.ceil(end - start + 1) }, (_, i) => start + i);
+
+let yearRange = range(1992, 2019);
+
+let maxY = Math.max(...yearRange);
+let minY = Math.min(...yearRange);
 
 let fiveAttributes = [
   "Totals.Revenue",
@@ -51,6 +59,17 @@ function toggleMenu() {
       if (event.target.name === "typeofScale") {
         selectedScale = event.target.value;
         console.log("Selected Scale:", selectedScale);
+
+        let slider = document.getElementById("sliderRange");
+        let yearDisplay = document.getElementById("year");
+
+        if (selectedScale === "allYear") {
+          slider.disabled = true;
+          yearDisplay.innerHTML = "1992 - 2019";
+        } else {
+          slider.disabled = false;
+          yearDisplay.innerHTML = slider.value;
+        }
       }
     });
 }
@@ -64,6 +83,7 @@ function slider() {
 
   slider.addEventListener("input", function () {
     yearSelected = this.value;
+    yearDisplay.innerHTML = slider.value;
     console.log("Year:", this.value);
   });
 }
