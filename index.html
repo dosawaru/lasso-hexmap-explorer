@@ -8,12 +8,58 @@
     />
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="dosawaru.js"></script>
-    <script src="dosawaru.css"></script>
+    <link rel="stylesheet" href="dosawaru.css" />
   </head>
   <body>
     <div>
-      <h1 class="text-center">Homework #4: D3 Transitions</h1>
-      <h3 class="text-center">Daniel Osawaru - dosawaru@asu.edu</h3>
+      <div class="main">
+        <h1 class="text-center">Homework #4: D3 Transitions</h1>
+        <h3 class="text-center">Daniel Osawaru - dosawaru@asu.edu</h3>
+        <div class="container">
+          <!-- Headers -->
+          <div class="header">Control Panel</div>
+          <div class="header">Map</div>
+          <div class="header">Line Chart</div>
+          <!-- Content -->
+          <div class="content">
+            <div id="control-panel">
+              <div class="attribute-container">
+                <select id="attributeDropdown"></select>
+              </div>
+              <div id="toggle-radio">
+                <input
+                  type="radio"
+                  id="current_year"
+                  name="typeofScale"
+                  value="currentYear"
+                />
+                <label for="current_year">currentYear</label><br />
+                <input
+                  type="radio"
+                  id="all_years"
+                  name="typeofScale"
+                  value="allYear"
+                />
+                <label for="all_year">allYear</label>
+              </div>
+              <div id="range-slider">
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value="50"
+                  class="myslider"
+                  id="sliderRange"
+                />
+                <p>Value: <span id="year"></span></p>
+              </div>
+              <div id="play-pause">Play/Pause</div>
+            </div>
+          </div>
+          <div class="content">2</div>
+          <div class="content">3</div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
