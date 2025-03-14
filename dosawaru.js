@@ -1,17 +1,22 @@
 let isPlaying = false;
 let finance_data = [];
+let attribute_data = [];
 let selectedScale;
-let yearSelected;
-let selectedAttribute = "";
+let yearSelected = 1992;
+let selectedAttribute = "Totals.Revenue";
 
+// Create Range
 const range = (start, end) =>
   Array.from({ length: Math.ceil(end - start + 1) }, (_, i) => start + i);
 
+// Set range of years
 let yearRange = range(1992, 2019);
 
+// Max and Min years
 let maxY = Math.max(...yearRange);
 let minY = Math.min(...yearRange);
 
+// List of attributes
 let fiveAttributes = [
   "Totals.Revenue",
   "Totals.Tax",
@@ -25,8 +30,9 @@ document.addEventListener("DOMContentLoaded", function () {
   Promise.all([d3.csv("finance.csv")]).then(function (values) {
     console.log("Loaded the finance.csv");
     finance_data = values[0];
-    // console.log(finance_data);
+    console.log(finance_data);
 
+    test();
     dropdownMenu();
     toggleMenu();
     slider();
@@ -84,7 +90,7 @@ function slider() {
   slider.addEventListener("input", function () {
     yearSelected = this.value;
     yearDisplay.innerHTML = slider.value;
-    console.log("Year:", this.value);
+    // console.log("Year:", this.value);
   });
 }
 
@@ -100,5 +106,28 @@ function playpauseButton() {
       isPlaying = true;
       console.log("Playing");
     }
+  });
+}
+
+// Function to get the data for the selected year and attribute
+function getAttributeData(year, attribute) {
+  attribute_data = finance_data
+    .filter((d) => d.Year === String(year)) // Filters data based on year
+    .map((d) => ({
+      State: d.State,
+      Year: d.Year,
+      values: +d[attribute], // Gets the values of the selected attribute and converts to a num
+    }));
+  console.log(attribute_data);
+}
+
+// Test
+function test() {
+  let test = document.getElementById("test");
+
+  test.addEventListener("click", function () {
+    console.log("Year:", yearSelected);
+    console.log("Attribute:", selectedAttribute);
+    getAttributeData(yearSelected, selectedAttribute);
   });
 }
