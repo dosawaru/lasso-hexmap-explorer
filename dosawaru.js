@@ -12,6 +12,9 @@ const range = (start, end) =>
 // Set range of years
 let yearRange = range(1992, 2019);
 
+// Margin
+let margin = { top: 10, right: 10, bottom: 10, left: 10 };
+
 // Max and Min years
 let maxY = Math.max(...yearRange);
 let minY = Math.min(...yearRange);
@@ -37,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
     toggleMenu();
     slider();
     playpauseButton();
+    draw();
   });
 });
 
@@ -119,6 +123,67 @@ function getAttributeData(year, attribute) {
       values: +d[attribute], // Gets the values of the selected attribute and converts to a num
     }));
   console.log(attribute_data);
+}
+
+// Function to draw Map
+function draw() {
+  let gridMap = d3.select("#map");
+
+  // Get the width of the container
+  let mapContainer = document.getElementById("map-svg");
+  let width = mapContainer.offsetWidth - margin.left - margin.right;
+
+  // Set the size of the cells based on the width of the container
+  let cellsize = Math.floor(width / 12);
+
+  // Loads the state_pos.json file
+  d3.json("state_pos.json").then(function (data) {
+    let states = gridMap
+      .selectAll(".state")
+      .data(Object.entries(data), function (d) {
+        return d[0]; // Returns each state
+      });
+
+    // Draw states
+    states
+      .enter()
+      .append("rect")
+      .attr("class", "state")
+      // Position the cell based on the coordinates
+      .attr("y", function (d) {
+        return d[1].coordinates[0] * cellsize;
+      })
+      .attr("x", function (d) {
+        return d[1].coordinates[1] * cellsize;
+      })
+      .attr("width", cellsize)
+      .attr("height", cellsize)
+      .attr("fill", "blue")
+      .attr("stroke", "white");
+
+    // Draw state labels
+    let text = gridMap
+      .selectAll(".state-label")
+      .data(Object.entries(data), function (d) {
+        return d[0];
+      });
+
+    text
+      .enter()
+      .append("text")
+      .attr("class", "state-label")
+      // Position the text in the center of the cell
+      .attr("y", function (d) {
+        return d[1].coordinates[0] * cellsize + cellsize / 2;
+      })
+      .attr("x", function (d) {
+        return d[1].coordinates[1] * cellsize + cellsize / 2;
+      })
+      .style("text-anchor", "middle")
+      .text(function (d) {
+        return d[1].code; // Displays the state code
+      });
+  });
 }
 
 // Test
