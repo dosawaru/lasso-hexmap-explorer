@@ -24,7 +24,7 @@ let fiveAttributes = [
   "Totals.Revenue",
   "Totals.Tax",
   "Totals. Debt at end of fiscal year",
-  "Details.Insurance benefits and repayment",
+  "Details.Transportation.Highways.Highways Total Expenditure",
   "Details.Education.Education Total",
 ];
 
@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
     toggleMenu();
     slider();
     playpauseButton();
+    getAttributeData(yearSelected, selectedAttribute);
     draw();
   });
 });
@@ -58,6 +59,12 @@ function dropdownMenu() {
   dropdown.addEventListener("change", function () {
     selectedAttribute = this.value;
     console.log("Selected attribute:", selectedAttribute);
+    getAttributeData(yearSelected, selectedAttribute);
+    // redraw the map
+    gridMap = d3.select("#map");
+    gridMap.selectAll(".state").remove();
+    gridMap.selectAll(".state-label").remove();
+    draw();
   });
 }
 
@@ -144,6 +151,12 @@ function draw() {
         return d[0]; // Returns each state
       });
 
+    // Set color range
+    let color = d3
+      .scaleLinear()
+      .domain([500000, 8000000])
+      .range(["#cce5ff", "#4da6ff", "#005ce6"]);
+
     // Draw states
     states
       .enter()
@@ -158,7 +171,10 @@ function draw() {
       })
       .attr("width", cellsize)
       .attr("height", cellsize)
-      .attr("fill", "blue")
+      .attr("fill", function (d) {
+        let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute dat based on the current state
+        return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute
+      })
       .attr("stroke", "white");
 
     // Draw state labels
@@ -179,8 +195,9 @@ function draw() {
       .attr("x", function (d) {
         return d[1].coordinates[1] * cellsize + cellsize / 2;
       })
+      .attr("font-size", "9px")
       .style("text-anchor", "middle")
-      .text(function (d) {
+      .text(function (d, i) {
         return d[1].code; // Displays the state code
       });
   });

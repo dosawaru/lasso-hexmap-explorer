@@ -25,6 +25,10 @@ body {
   margin: 0;
 }
 
+#attributeDropdown {
+  width: 100px;
+}
+
 .container .header {
   grid-column: span 1;
   text-align: left;
