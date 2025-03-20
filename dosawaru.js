@@ -30,6 +30,9 @@ let fiveAttributes = [
   "Details.Education.Education Total",
 ];
 
+// Define gridMap
+let gridMap = d3.select("#map");
+
 document.addEventListener("DOMContentLoaded", function () {
   // Load the finance.csv file
   Promise.all([d3.csv("finance.csv")]).then(function (values) {
@@ -159,14 +162,15 @@ function getAttributeData_All(attribute) {
 
 // Function to draw Map
 function draw() {
-  let gridMap = d3.select("#map");
-
   // Get the width of the container
   let mapContainer = document.getElementById("map-svg");
   let width = mapContainer.offsetWidth - margin.left - margin.right;
 
   // Set the size of the cells based on the width of the container
   let cellsize = Math.floor(width / 12);
+
+  // Calculate height based on cells
+  let height = cellsize * 8 + margin.top - margin.bottom;
 
   // Loads the state_pos.json file
   d3.json("state_pos.json").then(function (data) {
@@ -181,7 +185,6 @@ function draw() {
       .scaleLinear()
       .domain([minValue, maxValue])
       .range(["#ff0000", "#0000ff"]);
-    // .interpolate(d3.interpolateRgb);
 
     // Draw states
     states
@@ -226,14 +229,57 @@ function draw() {
       .text(function (d, i) {
         return d[1].code; // Displays the state code
       });
+
+    // Create gradient layout
+    let defs = gridMap.append("defs");
+    let gradient = defs
+      .append("linearGradient")
+      .attr("id", "gradient")
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "0%")
+      .attr("y2", "0%");
+
+    // Create smooth gradiant based on color and min/max values
+    for (let i = 0; i < 10; i++) {
+      gradient
+        .append("stop")
+        .attr("offset", `${i * 10}%`)
+        .attr("stop-color", color(minValue + (i / 10) * (maxValue - minValue)));
+    }
+
+    // Draw gradient legend
+    gridMap
+      .append("rect")
+      .attr("x", 0)
+      .attr("y", 0)
+      .attr("width", width)
+      .attr("height", 20)
+      .style("fill", "url(#gradient)")
+      .attr("transform", "translate(0," + (height + 20) + ")");
+
+    // Create scale using min and max vlaues
+    let legendScale = d3
+      .scaleLinear()
+      .domain([minValue, maxValue])
+      .range([0, width]);
+
+    let axisBottom = d3
+      .axisBottom(legendScale)
+      .ticks(5)
+      .tickFormat(d3.format(".2s"));
+
+    gridMap
+      .append("g")
+      .attr("transform", "translate(0," + (height + 20) + ")")
+      .call(axisBottom);
   });
 }
 
 // Update Map
 function updateDraw() {
   gridMap = d3.select("#map");
-  gridMap.selectAll(".state").remove();
-  gridMap.selectAll(".state-label").remove();
+  gridMap.selectAll("*").remove();
   getMinMaxValues(selectedScale, selectedYear);
   draw();
 }
