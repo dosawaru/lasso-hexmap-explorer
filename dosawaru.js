@@ -1,8 +1,9 @@
 let isPlaying = false;
 let finance_data = [];
 let attribute_data = [];
-let selectedScale;
-let yearSelected = 1992;
+let attribute_data_all_years = [];
+let selectedScale = "currentYear";
+let selectedYear = 1992;
 let selectedAttribute = "Totals.Revenue";
 
 // Create Range
@@ -10,14 +11,15 @@ const range = (start, end) =>
   Array.from({ length: Math.ceil(end - start + 1) }, (_, i) => start + i);
 
 // Set range of years
-let yearRange = range(1992, 2019);
+let yearRange = range(1992, 2004);
 
 // Margin
 let margin = { top: 10, right: 10, bottom: 10, left: 10 };
 
-// Max and Min years
-let maxY = Math.max(...yearRange);
-let minY = Math.min(...yearRange);
+// Max and Min in current years
+let values = [];
+let maxValue = 0;
+let minValue = 0;
 
 // List of attributes
 let fiveAttributes = [
@@ -33,14 +35,19 @@ document.addEventListener("DOMContentLoaded", function () {
   Promise.all([d3.csv("finance.csv")]).then(function (values) {
     console.log("Loaded the finance.csv");
     finance_data = values[0];
-    console.log(finance_data);
-
-    test();
+    // Filter Data to only show years from valid years, 1992 - 2004
+    finance_data = finance_data.filter((d) => {
+      const year = parseInt(d.Year, 10);
+      return year >= 1992 && year <= 2004;
+    });
+    // console.log(finance_data);
     dropdownMenu();
     toggleMenu();
     slider();
     playpauseButton();
-    getAttributeData(yearSelected, selectedAttribute);
+    getAttributeData(selectedYear, selectedAttribute);
+    getAttributeData_All(selectedAttribute);
+    getMinMaxValues(selectedScale, selectedYear);
     draw();
   });
 });
@@ -58,13 +65,13 @@ function dropdownMenu() {
 
   dropdown.addEventListener("change", function () {
     selectedAttribute = this.value;
-    console.log("Selected attribute:", selectedAttribute);
-    getAttributeData(yearSelected, selectedAttribute);
-    // redraw the map
-    gridMap = d3.select("#map");
-    gridMap.selectAll(".state").remove();
-    gridMap.selectAll(".state-label").remove();
-    draw();
+    // console.log("Selected attribute:", selectedAttribute);
+
+    selectedScale == "currentYear"
+      ? getAttributeData(selectedYear, selectedAttribute)
+      : getAttributeData_All(selectedAttribute);
+
+    updateDraw();
   });
 }
 
@@ -82,11 +89,16 @@ function toggleMenu() {
 
         if (selectedScale === "allYear") {
           slider.disabled = true;
-          yearDisplay.innerHTML = "1992 - 2019";
+          yearDisplay.innerHTML = "1992 - 2004";
         } else {
           slider.disabled = false;
           yearDisplay.innerHTML = slider.value;
         }
+        // Get the attribute data based on the selected scale
+        selectedScale == "currentYear"
+          ? getAttributeData(selectedYear, selectedAttribute)
+          : getAttributeData_All(selectedAttribute);
+        updateDraw();
       }
     });
 }
@@ -99,9 +111,11 @@ function slider() {
   yearDisplay.innerHTML = slider.value;
 
   slider.addEventListener("input", function () {
-    yearSelected = this.value;
+    selectedYear = this.value;
     yearDisplay.innerHTML = slider.value;
-    // console.log("Year:", this.value);
+    console.log("Year:", this.value);
+    getAttributeData(selectedYear, selectedAttribute);
+    updateDraw();
   });
 }
 
@@ -129,7 +143,18 @@ function getAttributeData(year, attribute) {
       Year: d.Year,
       values: +d[attribute], // Gets the values of the selected attribute and converts to a num
     }));
-  console.log(attribute_data);
+  // console.log(attribute_data);
+}
+
+// Function to get the data for the selected attribute and all year
+function getAttributeData_All(attribute) {
+  console.log(selectedAttribute);
+  attribute_data_all_years = finance_data.map((d) => ({
+    State: d.State,
+    Year: d.Year,
+    values: +d[attribute],
+  }));
+  // console.log(attribute_data_all_years);
 }
 
 // Function to draw Map
@@ -154,8 +179,9 @@ function draw() {
     // Set color range
     let color = d3
       .scaleLinear()
-      .domain([500000, 8000000])
-      .range(["#cce5ff", "#4da6ff", "#005ce6"]);
+      .domain([minValue, maxValue])
+      .range(["#ff0000", "#0000ff"]);
+    // .interpolate(d3.interpolateRgb);
 
     // Draw states
     states
@@ -172,7 +198,7 @@ function draw() {
       .attr("width", cellsize)
       .attr("height", cellsize)
       .attr("fill", function (d) {
-        let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute dat based on the current state
+        let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute dats based on the current state
         return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute
       })
       .attr("stroke", "white");
@@ -203,13 +229,34 @@ function draw() {
   });
 }
 
-// Test
-function test() {
-  let test = document.getElementById("test");
+// Update Map
+function updateDraw() {
+  gridMap = d3.select("#map");
+  gridMap.selectAll(".state").remove();
+  gridMap.selectAll(".state-label").remove();
+  getMinMaxValues(selectedScale, selectedYear);
+  draw();
+}
 
-  test.addEventListener("click", function () {
-    console.log("Year:", yearSelected);
-    console.log("Attribute:", selectedAttribute);
-    getAttributeData(yearSelected, selectedAttribute);
-  });
+// Get the Min and Max Values based on the selected year or scale
+function getMinMaxValues(selectedScale, selectedYear) {
+  let values = [];
+
+  // Check the state of which scale is active and get all the values accordingly
+  if (selectedScale === "allYear") {
+    values = attribute_data_all_years.map((item) => item.values).flat();
+    console.log(attribute_data_all_years);
+  } else {
+    let filtered_data = attribute_data.filter(
+      (item) => item.Year === String(selectedYear)
+    );
+    values = filtered_data.map((item) => item.values).flat();
+  }
+
+  // Update min and max Values
+  minValue = Math.min(...values);
+  maxValue = Math.max(...values);
+
+  // console.log("Min:", minValue);
+  // console.log("Max:", maxValue);
 }
