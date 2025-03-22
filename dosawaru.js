@@ -5,6 +5,7 @@ let attribute_data_all_years = [];
 let selectedScale = "currentYear";
 let selectedYear = 1992;
 let selectedAttribute = "Totals.Revenue";
+let lassoStates = [];
 
 // Create Range
 const range = (start, end) =>
@@ -201,7 +202,7 @@ function draw() {
       .attr("width", cellsize)
       .attr("height", cellsize)
       .attr("fill", function (d) {
-        let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute dats based on the current state
+        let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute data based on the current state
         return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute
       })
       .attr("stroke", "white");
@@ -303,8 +304,6 @@ function draw() {
     gridMap
       // Lasso Start
       .on("pointerdown", function (e) {
-        console.log("lasso");
-
         // Changes state of drawing
         isDrawing = true;
         polygon = [];
@@ -316,8 +315,6 @@ function draw() {
       })
       // Lasso Drawing
       .on("pointermove", function (e) {
-        console.log("drawing");
-
         if (isDrawing) {
           const [x, y] = d3.pointer(e);
           polygon.push([x, y]);
@@ -326,8 +323,6 @@ function draw() {
       })
       // Lasso end
       .on("pointerup", function () {
-        console.log("end");
-
         // Changes state of drawing
         isDrawing = false;
         drawLasso(polygon);
@@ -352,6 +347,19 @@ function draw() {
         } else {
           selectedStatesDiv.innerHTML = `Selected States: None`;
         }
+
+        lassoStates = [];
+        lassoStates.push(selected.map((d) => d.state));
+
+        let test = attribute_data
+          .filter((d) => lassoStates[0].includes(d.State)) // Check if the state is in the selected states
+          .map((d) => ({
+            State: d.State,
+            Year: d.Year,
+            Values: d.values,
+          }));
+
+        console.log("Filtered Data:", test);
       });
   });
 }
