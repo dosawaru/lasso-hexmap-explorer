@@ -14,7 +14,7 @@ const range = (start, end) =>
 let yearRange = range(1992, 2004);
 
 // Margin
-let margin = { top: 10, right: 10, bottom: 10, left: 10 };
+let margin = { top: 25, right: 25, bottom: 25, left: 25 };
 
 // Max and Min in current years
 let values = [];
@@ -167,10 +167,10 @@ function draw() {
   let width = mapContainer.offsetWidth - margin.left - margin.right;
 
   // Set the size of the cells based on the width of the container
-  let cellsize = Math.floor(width / 12);
+  const cellsize = Math.floor(width / 12);
 
   // Calculate height based on cells
-  let height = cellsize * 8 + margin.top - margin.bottom;
+  const height = cellsize * 8;
 
   // Loads the state_pos.json file
   d3.json("state_pos.json").then(function (data) {
@@ -181,7 +181,7 @@ function draw() {
       });
 
     // Set color range
-    let color = d3
+    const color = d3
       .scaleLinear()
       .domain([minValue, maxValue])
       .range(["#ff0000", "#0000ff"]);
@@ -248,6 +248,8 @@ function draw() {
         .attr("stop-color", color(minValue + (i / 10) * (maxValue - minValue)));
     }
 
+    const legendHeight = height + margin.top + margin.bottom;
+
     // Draw gradient legend
     gridMap
       .append("rect")
@@ -256,9 +258,9 @@ function draw() {
       .attr("width", width)
       .attr("height", 20)
       .style("fill", "url(#gradient)")
-      .attr("transform", "translate(0," + (height + 20) + ")");
+      .attr("transform", "translate(0," + legendHeight + ")");
 
-    // Create scale using min and max vlaues
+    // Create scale using min and max values and draw axis
     let legendScale = d3
       .scaleLinear()
       .domain([minValue, maxValue])
@@ -271,8 +273,86 @@ function draw() {
 
     gridMap
       .append("g")
-      .attr("transform", "translate(0," + (height + 20) + ")")
+      .attr("transform", "translate(0," + legendHeight + ")")
       .call(axisBottom);
+
+    // Define lasso path and track state/values
+    let path = d3.geoPath();
+    let lassoPath = gridMap.append("path").attr("class", "lasso");
+    let polygon = [];
+    let isDrawing = false;
+
+    // Function to draw the lasso
+    function drawLasso(polygon) {
+      // Store the corrdinates of the lasso
+      lassoPath
+        .datum({
+          type: "LineString",
+          coordinates: polygon,
+        })
+        .attr("d", path);
+
+      // Gets the states contained within the lasso and sets the class to "selected"
+      gridMap.selectAll(".state").classed("selected", function (d) {
+        const x = d[1].coordinates[1] * cellsize;
+        const y = d[1].coordinates[0] * cellsize;
+        return polygon.length > 2 && d3.polygonContains(polygon, [x, y]);
+      });
+    }
+
+    gridMap
+      // Lasso Start
+      .on("pointerdown", function (e) {
+        console.log("lasso");
+
+        // Changes state of drawing
+        isDrawing = true;
+        polygon = [];
+
+        // Gets the coordinates of the pointer and stores it in a array
+        const [x, y] = d3.pointer(e);
+        polygon.push([x, y]);
+        drawLasso(polygon);
+      })
+      // Lasso Drawing
+      .on("pointermove", function (e) {
+        console.log("drawing");
+
+        if (isDrawing) {
+          const [x, y] = d3.pointer(e);
+          polygon.push([x, y]);
+          drawLasso(polygon);
+        }
+      })
+      // Lasso end
+      .on("pointerup", function () {
+        console.log("end");
+
+        // Changes state of drawing
+        isDrawing = false;
+        drawLasso(polygon);
+
+        // Filter through the all states and stores the data (state name) if found within polygon (array storing the lasso coord)
+        const selected = Object.entries(data)
+          .filter(([state, position]) => {
+            const x = position.coordinates[1] * cellsize;
+            const y = position.coordinates[0] * cellsize;
+            return d3.polygonContains(polygon, [x, y]);
+          })
+          .map(([state, position]) => ({
+            state: state,
+          }));
+
+        // Updates div with selected states
+        let selectedStatesDiv = document.getElementById("selectedStates");
+        if (selected.length > 0) {
+          selectedStatesDiv.innerHTML = `Selected States: ${selected
+            .map((d) => `${d.state}`)
+            .join(", ")}`;
+        } else {
+          selectedStatesDiv.innerHTML = `Selected States: None`;
+        }
+      });
   });
 }
 
@@ -302,7 +382,4 @@ function getMinMaxValues(selectedScale, selectedYear) {
   // Update min and max Values
   minValue = Math.min(...values);
   maxValue = Math.max(...values);
-
-  // console.log("Min:", minValue);
-  // console.log("Max:", maxValue);
 }
