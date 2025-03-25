@@ -381,15 +381,10 @@ function updateDraw() {
 // Draw Line Graph
 function drawLines(lassoData) {
   let linesContainer = document.getElementById("lines-svg");
-  let width = linesContainer.offsetWidth - margin.left - margin.right;
+  let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
   let height = linesContainer.offsetHeight - margin.top - margin.bottom;
 
   lineGraph.selectAll("*").remove();
-
-  lineGraph
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .attr("transform", `translate(0, ${margin.top})`);
 
   // Groups all the date based on State Name
   const sumstat = d3.group(lassoData, (d) => d.State);
@@ -440,6 +435,22 @@ function drawLines(lassoData) {
     .attr("d", (d) => line(d[1]))
     .attr("transform", `translate(${margin.left}, 0)`);
 
+  // Line Label
+  lineGraph
+    .selectAll("text.label")
+    .data(sumstat)
+    .join("text")
+    .attr("class", "label")
+    .attr("x", width + margin.left + 5)
+    .attr("y", (d) => {
+      const lastpoint = d[1][12].Values; // Get the values for the last year (2004)
+      return y(lastpoint);
+    })
+    .attr("fill", (d) => color(d[0]))
+    .attr("font-size", 10)
+    .attr("font-family", "sans-serif")
+    .text((d) => d[0]);
+
   // Create Current Year Marker
   lineGraph
     .append("line")
@@ -453,26 +464,47 @@ function drawLines(lassoData) {
     .style("stroke-width", 2)
     .attr("transform", `translate(${margin.left}, 0)`);
 
+  // X-axis label
   lineGraph
-    .append("g")
-    .attr("transform", `translate(${margin.left}, 0)`)
-    .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
+    .append("text")
+    .attr("class", "x-label")
+    .attr("x", width / 2 + margin.left)
+    .attr("y", height + margin.top + 10)
+    .attr("text-anchor", "middle")
+    .style("font-size", "12px")
+    .text("Year");
 
   lineGraph
     .append("g")
-    .attr("transform", `translate(${margin.left},${height})`)
+    .attr("transform", `translate(${margin.left}, ${height})`)
     .call(
       d3
         .axisBottom(x)
         .ticks(d3.timeYear.every(1))
         .tickFormat(d3.timeFormat("%Y"))
     );
+
+  // Y-axis label
+  lineGraph
+    .append("text")
+    .attr("class", "y-label")
+    .attr("x", -height / 2)
+    .attr("y", 10)
+    .attr("text-anchor", "middle")
+    .style("font-size", "12px")
+    .attr("transform", "rotate(-90)")
+    .text(selectedAttribute + " ($)");
+
+  lineGraph
+    .append("g")
+    .attr("transform", `translate(${margin.left}, 0)`)
+    .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
 }
 
 // Update Current Year Marker
 function updateCurrentYearMarker() {
   let linesContainer = document.getElementById("lines-svg");
-  let width = linesContainer.offsetWidth - margin.left - margin.right;
+  let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
   let height = linesContainer.offsetHeight - margin.top - margin.bottom;
 
   lineGraph.select(".line-year").remove();
@@ -493,6 +525,7 @@ function updateCurrentYearMarker() {
     .style("stroke-width", 2)
     .attr("transform", `translate(${margin.left}, 0)`);
 }
+
 // Get the Min and Max Values based on the selected year or scale
 function getMinMaxValues(selectedScale, selectedYear) {
   let values = [];

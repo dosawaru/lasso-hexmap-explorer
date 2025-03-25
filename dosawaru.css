@@ -78,3 +78,11 @@ svg {
   stroke-width: 1.5;
   stroke: white;
 }
+
+#lines {
+  padding: 20px;
+}
+
+svg {
+  overflow: visible;
+}
