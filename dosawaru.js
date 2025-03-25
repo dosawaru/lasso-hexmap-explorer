@@ -15,7 +15,7 @@ const range = (start, end) =>
 let yearRange = range(1992, 2004);
 
 // Margin
-let margin = { top: 25, right: 25, bottom: 25, left: 25 };
+let margin = { top: 25, right: 25, bottom: 50, left: 50 };
 
 // Max and Min in current years
 let values = [];
@@ -33,6 +33,8 @@ let fiveAttributes = [
 
 // Define gridMap
 let gridMap = d3.select("#map");
+// Define lineGraph
+let lineGraph = d3.select("#lines");
 
 document.addEventListener("DOMContentLoaded", function () {
   // Load the finance.csv file
@@ -52,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function () {
     getAttributeData(selectedYear, selectedAttribute);
     getAttributeData_All(selectedAttribute);
     getMinMaxValues(selectedScale, selectedYear);
-    draw();
+    drawMap();
   });
 });
 
@@ -119,6 +121,7 @@ function slider() {
     yearDisplay.innerHTML = slider.value;
     console.log("Year:", this.value);
     getAttributeData(selectedYear, selectedAttribute);
+    updateCurrentYearMarker();
     updateDraw();
   });
 }
@@ -150,9 +153,8 @@ function getAttributeData(year, attribute) {
   // console.log(attribute_data);
 }
 
-// Function to get the data for the selected attribute and all year
+// Get the data for the selected attribute and all year
 function getAttributeData_All(attribute) {
-  console.log(selectedAttribute);
   attribute_data_all_years = finance_data.map((d) => ({
     State: d.State,
     Year: d.Year,
@@ -161,8 +163,8 @@ function getAttributeData_All(attribute) {
   // console.log(attribute_data_all_years);
 }
 
-// Function to draw Map
-function draw() {
+// Draws Map
+function drawMap() {
   // Get the width of the container
   let mapContainer = document.getElementById("map-svg");
   let width = mapContainer.offsetWidth - margin.left - margin.right;
@@ -351,7 +353,7 @@ function draw() {
         lassoStates = [];
         lassoStates.push(selected.map((d) => d.state));
 
-        let test = attribute_data
+        let lassoData = attribute_data_all_years
           .filter((d) => lassoStates[0].includes(d.State)) // Check if the state is in the selected states
           .map((d) => ({
             State: d.State,
@@ -359,7 +361,11 @@ function draw() {
             Values: d.values,
           }));
 
-        console.log("Filtered Data:", test);
+        // Draws Line Graph when lasso data has valuess
+        if (lassoData.length > 0) {
+          drawLines(lassoData);
+          console.log("Lasso Data:", lassoData);
+        }
       });
   });
 }
@@ -369,9 +375,124 @@ function updateDraw() {
   gridMap = d3.select("#map");
   gridMap.selectAll("*").remove();
   getMinMaxValues(selectedScale, selectedYear);
-  draw();
+  drawMap();
 }
 
+// Draw Line Graph
+function drawLines(lassoData) {
+  let linesContainer = document.getElementById("lines-svg");
+  let width = linesContainer.offsetWidth - margin.left - margin.right;
+  let height = linesContainer.offsetHeight - margin.top - margin.bottom;
+
+  lineGraph.selectAll("*").remove();
+
+  lineGraph
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .attr("transform", `translate(0, ${margin.top})`);
+
+  // Groups all the date based on State Name
+  const sumstat = d3.group(lassoData, (d) => d.State);
+
+  // X-axis
+  const x = d3
+    .scaleTime()
+    .domain([new Date(1992, 0, 1), new Date(2004, 0, 1)])
+    .range([0, width]);
+
+  // Y-axis
+  const y = d3
+    .scaleLinear()
+    .domain([0, d3.max(lassoData, (d) => d.Values)])
+    .range([height, 0]);
+
+  const color = d3
+    .scaleOrdinal()
+    .range([
+      "#e41a1c",
+      "#377eb8",
+      "#4daf4a",
+      "#984ea3",
+      "#ff7f00",
+      "#ffff33",
+      "#a65628",
+      "#f781bf",
+      "#999999",
+    ]);
+
+  // Map x and y based on year and value respectively
+  const line = d3
+    .line()
+    .x((d) => x(new Date(+d.Year, 0, 1)))
+    .y((d) => y(d.Values))
+    .curve(d3.curveCatmullRom);
+
+  // Draw lines
+  lineGraph
+    .selectAll(".line")
+    .data(sumstat)
+    .join("path")
+    .attr("class", "state-lines")
+    .attr("fill", "none")
+    .attr("stroke", (d) => color(d[0]))
+    .attr("stroke-width", 2)
+    .attr("fill", "transparent")
+    .attr("d", (d) => line(d[1]))
+    .attr("transform", `translate(${margin.left}, 0)`);
+
+  // Create Current Year Marker
+  lineGraph
+    .append("line")
+    .data(lassoData)
+    .attr("class", "line-year")
+    .attr("x1", x(new Date(selectedYear, 0, 1)))
+    .attr("x2", x(new Date(selectedYear, 0, 1)))
+    .attr("y2", height)
+    .attr("y1", 0)
+    .style("stroke", "white")
+    .style("stroke-width", 2)
+    .attr("transform", `translate(${margin.left}, 0)`);
+
+  lineGraph
+    .append("g")
+    .attr("transform", `translate(${margin.left}, 0)`)
+    .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
+
+  lineGraph
+    .append("g")
+    .attr("transform", `translate(${margin.left},${height})`)
+    .call(
+      d3
+        .axisBottom(x)
+        .ticks(d3.timeYear.every(1))
+        .tickFormat(d3.timeFormat("%Y"))
+    );
+}
+
+// Update Current Year Marker
+function updateCurrentYearMarker() {
+  let linesContainer = document.getElementById("lines-svg");
+  let width = linesContainer.offsetWidth - margin.left - margin.right;
+  let height = linesContainer.offsetHeight - margin.top - margin.bottom;
+
+  lineGraph.select(".line-year").remove();
+
+  const x = d3
+    .scaleTime()
+    .domain([new Date(1992, 0, 1), new Date(2004, 0, 1)])
+    .range([0, width]);
+
+  lineGraph
+    .append("line")
+    .attr("class", "line-year")
+    .attr("x1", x(new Date(selectedYear, 0, 1)))
+    .attr("x2", x(new Date(selectedYear, 0, 1)))
+    .attr("y2", height)
+    .attr("y1", 0)
+    .style("stroke", "white")
+    .style("stroke-width", 2)
+    .attr("transform", `translate(${margin.left}, 0)`);
+}
 // Get the Min and Max Values based on the selected year or scale
 function getMinMaxValues(selectedScale, selectedYear) {
   let values = [];
