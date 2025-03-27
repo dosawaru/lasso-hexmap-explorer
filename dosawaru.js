@@ -32,6 +32,12 @@ let fiveAttributes = [
   "Details.Education.Education Total",
 ];
 
+// Get element Ids
+let playButton = document.getElementById("playButton");
+let slider = document.getElementById("sliderRange");
+let yearDisplay = document.getElementById("year");
+let toggleButton = document.getElementById("toggle-radio");
+
 // Define gridMap
 let gridMap = d3.select("#map");
 // Define lineGraph
@@ -49,8 +55,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     dropdownMenu();
     toggleMenu();
-    slider();
-    playpauseButton();
+    sliderMenu();
+    playMenu();
     getAttributeData(selectedYear, selectedAttribute);
     getAttributeData_All(selectedAttribute);
     getMinMaxValues(selectedScale, selectedYear);
@@ -84,45 +90,37 @@ function dropdownMenu() {
 
 // Function to toggle the radio buttons
 function toggleMenu() {
-  document
-    .getElementById("toggle-radio")
-    .addEventListener("change", function (event) {
-      if (event.target.name === "typeofScale") {
-        selectedScale = event.target.value;
-        console.log("Selected Scale:", selectedScale);
+  toggleButton.addEventListener("change", function (event) {
+    if (event.target.name === "typeofScale") {
+      selectedScale = event.target.value;
 
-        let slider = document.getElementById("sliderRange");
-        let yearDisplay = document.getElementById("year");
-
-        if (selectedScale === "allYear") {
-          slider.disabled = true;
-          yearDisplay.innerHTML = "1992 - 2004";
-          lineGraph.select(".line-year").remove();
-        } else {
-          slider.disabled = false;
-          yearDisplay.innerHTML = slider.value;
-          updateCurrentYearMarker();
-        }
-        // Get the attribute data based on the selected scale
-        selectedScale == "currentYear"
-          ? getAttributeData(selectedYear, selectedAttribute)
-          : getAttributeData_All(selectedAttribute);
-        updateMap();
+      if (selectedScale === "allYear") {
+        slider.disabled = true;
+        playButton.disabled = true;
+        yearDisplay.innerHTML = "1992 - 2004";
+        updateCurrentYearMarker();
+      } else {
+        slider.disabled = false;
+        playButton.disabled = false;
+        yearDisplay.innerHTML = slider.value;
+        updateCurrentYearMarker();
       }
-    });
+      // Get the attribute data based on the selected scale
+      selectedScale == "currentYear"
+        ? getAttributeData(selectedYear, selectedAttribute)
+        : getAttributeData_All(selectedAttribute);
+      updateMap();
+    }
+  });
 }
 
 // Function to update the Year slider
-function slider() {
-  let slider = document.getElementById("sliderRange");
-  let yearDisplay = document.getElementById("year");
-
+function sliderMenu() {
   yearDisplay.innerHTML = slider.value;
 
   slider.addEventListener("input", function () {
     selectedYear = this.value;
     yearDisplay.innerHTML = slider.value;
-    console.log("Year:", this.value);
     getAttributeData(selectedYear, selectedAttribute);
     updateCurrentYearMarker();
     updateMap();
@@ -130,16 +128,13 @@ function slider() {
 }
 
 // Function to play and pause the animation
-function playpauseButton() {
-  let playpasue = document.getElementById("play-pause");
-
-  playpasue.addEventListener("click", function () {
-    if (isPlaying) {
-      isPlaying = false;
-      console.log("Paused");
-    } else {
+function playMenu() {
+  playButton.addEventListener("click", function () {
+    // Checks to play animation if current not playing and line graph is no empty
+    if (!isPlaying && !lineGraph.selectAll(".state-lines").empty()) {
       isPlaying = true;
-      console.log("Playing");
+      console.log("test");
+      updateCurrentYearMarker();
     }
   });
 }
@@ -354,14 +349,17 @@ function drawMap() {
     gridMap
       // Lasso Start
       .on("pointerdown", function (e) {
-        // Changes state of drawing
-        isDrawing = true;
-        polygon = [];
+        // Disable lasso if playing
+        if (!isPlaying) {
+          // Changes state of drawing
+          isDrawing = true;
+          polygon = [];
 
-        // Gets the coordinates of the pointer and stores it in a array
-        const [x, y] = d3.pointer(e);
-        polygon.push([x, y]);
-        drawLasso(polygon);
+          // Gets the coordinates of the pointer and stores it in a array
+          const [x, y] = d3.pointer(e);
+          polygon.push([x, y]);
+          drawLasso(polygon);
+        }
       })
       // Lasso Drawing
       .on("pointermove", function (e) {
@@ -721,21 +719,49 @@ function updateCurrentYearMarker() {
         .duration(250)
         .attr("x1", x(new Date(selectedYear, 0, 1)))
         .attr("x2", x(new Date(selectedYear, 0, 1)));
-    } else {
-      lineGraph
-        .append("line")
-        .attr("class", "line-year")
-        .attr("x1", x(new Date(selectedYear, 0, 1)))
-        .attr("x2", x(new Date(selectedYear, 0, 1)))
-        .attr("y2", height)
-        .attr("y1", 0)
-        .style("stroke", "white")
-        .style("stroke-width", 2)
-        .attr("transform", `translate(${margin.left}, 0)`)
-        .style("opacity", 0)
-        .transition()
-        .duration(500)
-        .style("opacity", 1);
+    } else if (!lineGraph.selectAll(".state-lines").empty()) {
+      drawMarker();
     }
+  } else {
+    yearLine
+      .transition()
+      .ease(d3.easeSinInOut)
+      .duration(500)
+      .style("opacity", 0)
+      .remove();
+  }
+
+  if (isPlaying && selectedScale !== "allYear") {
+    yearLine
+      .transition()
+      .ease(d3.easeLinear)
+      .duration(3000)
+      .attr("x1", x(new Date(2004, 0, 1)))
+      .attr("x2", x(new Date(2004, 0, 1)))
+      .transition()
+      .duration(500)
+      .style("opacity", 0)
+      .remove()
+      .on("end", () => {
+        drawMarker();
+        isPlaying = false;
+      });
+  }
+
+  function drawMarker() {
+    lineGraph
+      .append("line")
+      .attr("class", "line-year")
+      .attr("x1", x(new Date(selectedYear, 0, 1)))
+      .attr("x2", x(new Date(selectedYear, 0, 1)))
+      .attr("y2", height)
+      .attr("y1", 0)
+      .style("stroke", "white")
+      .style("stroke-width", 2)
+      .attr("transform", `translate(${margin.left}, 0)`)
+      .style("opacity", 0)
+      .transition()
+      .duration(500)
+      .style("opacity", 1);
   }
 }
