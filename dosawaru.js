@@ -734,6 +734,9 @@ function updateCurrentYearMarker() {
   if (isPlaying && selectedScale !== "allYear") {
     yearLine
       .transition()
+      .on("start", () => {
+        disableControlPanel(); // disable elements
+      })
       .ease(d3.easeLinear)
       .duration(3000)
       .attr("x1", x(new Date(2004, 0, 1)))
@@ -744,6 +747,7 @@ function updateCurrentYearMarker() {
       .remove()
       .on("end", () => {
         drawMarker();
+        enableControlPanel(); // re-enable elements
         isPlaying = false;
       });
   }
@@ -763,5 +767,17 @@ function updateCurrentYearMarker() {
       .transition()
       .duration(500)
       .style("opacity", 1);
+  }
+
+  function disableControlPanel() {
+    const controlPanel = document.getElementById("control-panel");
+    const elements = controlPanel.querySelectorAll("input, select, button");
+    elements.forEach((x) => (x.disabled = true));
+  }
+
+  function enableControlPanel() {
+    const controlPanel = document.getElementById("control-panel");
+    const elements = controlPanel.querySelectorAll("input, select, button");
+    elements.forEach((x) => (x.disabled = false));
   }
 }
