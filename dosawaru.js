@@ -531,17 +531,7 @@ function drawLines(lassoData) {
     .duration(500) // Transition when fading in
     .style("opacity", 1);
 
-  // Create Current Year Marker
-  lineGraph
-    .append("line")
-    .attr("class", "line-year")
-    .attr("x1", x(new Date(selectedYear, 0, 1)))
-    .attr("x2", x(new Date(selectedYear, 0, 1)))
-    .attr("y2", height)
-    .attr("y1", 0)
-    .style("stroke", "white")
-    .style("stroke-width", 2)
-    .attr("transform", `translate(${margin.left}, 0)`);
+  updateCurrentYearMarker();
 
   // X-axis label
   lineGraph
@@ -723,27 +713,29 @@ function updateCurrentYearMarker() {
   let yearLine = lineGraph.select(".line-year");
 
   // Animation when moving marker
-  if (!yearLine.empty()) {
-    yearLine
-      .transition()
-      .ease(d3.easeSinInOut)
-      .duration(250)
-      .attr("x1", x(new Date(selectedYear, 0, 1)))
-      .attr("x2", x(new Date(selectedYear, 0, 1)));
-  } else {
-    lineGraph
-      .append("line")
-      .attr("class", "line-year")
-      .attr("x1", x(new Date(selectedYear, 0, 1)))
-      .attr("x2", x(new Date(selectedYear, 0, 1)))
-      .attr("y2", height)
-      .attr("y1", 0)
-      .style("stroke", "white")
-      .style("stroke-width", 2)
-      .attr("transform", `translate(${margin.left}, 0)`)
-      .style("opacity", 0)
-      .transition()
-      .duration(500)
-      .style("opacity", 1);
+  if (selectedScale !== "allYear") {
+    if (!yearLine.empty()) {
+      yearLine
+        .transition()
+        .ease(d3.easeSinInOut)
+        .duration(250)
+        .attr("x1", x(new Date(selectedYear, 0, 1)))
+        .attr("x2", x(new Date(selectedYear, 0, 1)));
+    } else {
+      lineGraph
+        .append("line")
+        .attr("class", "line-year")
+        .attr("x1", x(new Date(selectedYear, 0, 1)))
+        .attr("x2", x(new Date(selectedYear, 0, 1)))
+        .attr("y2", height)
+        .attr("y1", 0)
+        .style("stroke", "white")
+        .style("stroke-width", 2)
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .style("opacity", 0)
+        .transition()
+        .duration(500)
+        .style("opacity", 1);
+    }
   }
 }
