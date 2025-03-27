@@ -2,10 +2,11 @@ let isPlaying = false;
 let finance_data = [];
 let attribute_data = [];
 let attribute_data_all_years = [];
+let lassoStates = [];
+let lassoData = [];
 let selectedScale = "currentYear";
 let selectedYear = 1992;
 let selectedAttribute = "Totals.Revenue";
-let lassoStates = [];
 
 // Create Range
 const range = (start, end) =>
@@ -46,7 +47,6 @@ document.addEventListener("DOMContentLoaded", function () {
       const year = parseInt(d.Year, 10);
       return year >= 1992 && year <= 2004;
     });
-    // console.log(finance_data);
     dropdownMenu();
     toggleMenu();
     slider();
@@ -77,7 +77,8 @@ function dropdownMenu() {
       ? getAttributeData(selectedYear, selectedAttribute)
       : getAttributeData_All(selectedAttribute);
 
-    updateDraw();
+    updateMap();
+    getLassoData(selectedAttribute);
   });
 }
 
@@ -96,15 +97,17 @@ function toggleMenu() {
         if (selectedScale === "allYear") {
           slider.disabled = true;
           yearDisplay.innerHTML = "1992 - 2004";
+          lineGraph.select(".line-year").remove();
         } else {
           slider.disabled = false;
           yearDisplay.innerHTML = slider.value;
+          updateCurrentYearMarker();
         }
         // Get the attribute data based on the selected scale
         selectedScale == "currentYear"
           ? getAttributeData(selectedYear, selectedAttribute)
           : getAttributeData_All(selectedAttribute);
-        updateDraw();
+        updateMap();
       }
     });
 }
@@ -122,7 +125,7 @@ function slider() {
     console.log("Year:", this.value);
     getAttributeData(selectedYear, selectedAttribute);
     updateCurrentYearMarker();
-    updateDraw();
+    updateMap();
   });
 }
 
@@ -163,7 +166,47 @@ function getAttributeData_All(attribute) {
   // console.log(attribute_data_all_years);
 }
 
-// Draws Map
+// Get the State Values based on the selected attribute
+function getLassoData(selectedAttribute) {
+  getAttributeData_All(selectedAttribute);
+
+  lassoData = attribute_data_all_years
+    .filter((d) => lassoStates[0].includes(d.State)) // Check if the state is in the selected states
+    .map((d) => ({
+      State: d.State,
+      Year: d.Year,
+      Values: d.values,
+    }));
+
+  // Draws lines graph if empty and lassoData has data, otherwise update line graph
+  if (lassoData.length > 0 && lineGraph.select(".line-year").empty()) {
+    drawLines(lassoData);
+  } else {
+    updateLines(lassoData);
+  }
+}
+
+// Get the Min and Max Values based on the selected year or scale
+function getMinMaxValues(selectedScale, selectedYear) {
+  let values = [];
+
+  // Check the state of which scale is active and get all the values accordingly
+  if (selectedScale === "allYear") {
+    values = attribute_data_all_years.map((item) => item.values).flat();
+    console.log(attribute_data_all_years);
+  } else {
+    let filtered_data = attribute_data.filter(
+      (item) => item.Year === String(selectedYear)
+    );
+    values = filtered_data.map((item) => item.values).flat();
+  }
+
+  // Update min and max Values
+  minValue = Math.min(...values);
+  maxValue = Math.max(...values);
+}
+
+// Draws Map Graph
 function drawMap() {
   // Get the width of the container
   let mapContainer = document.getElementById("map-svg");
@@ -203,7 +246,7 @@ function drawMap() {
       })
       .attr("width", cellsize)
       .attr("height", cellsize)
-      .attr("fill", function (d) {
+      .style("fill", function (d) {
         let state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute data based on the current state
         return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute
       })
@@ -229,6 +272,7 @@ function drawMap() {
       })
       .attr("font-size", "9px")
       .style("text-anchor", "middle")
+      .style("user-select", "none")
       .text(function (d, i) {
         return d[1].code; // Displays the state code
       });
@@ -247,6 +291,7 @@ function drawMap() {
     for (let i = 0; i < 10; i++) {
       gradient
         .append("stop")
+        .attr("class", "gradient-color")
         .attr("offset", `${i * 10}%`)
         .attr("stop-color", color(minValue + (i / 10) * (maxValue - minValue)));
     }
@@ -256,6 +301,7 @@ function drawMap() {
     // Draw gradient legend
     gridMap
       .append("rect")
+      .attr("class", "color-scale")
       .attr("x", 0)
       .attr("y", 0)
       .attr("width", width)
@@ -276,6 +322,8 @@ function drawMap() {
 
     gridMap
       .append("g")
+      .attr("class", "x-axis")
+      .style("user-select", "none")
       .attr("transform", "translate(0," + legendHeight + ")")
       .call(axisBottom);
 
@@ -350,32 +398,58 @@ function drawMap() {
           selectedStatesDiv.innerHTML = `Selected States: None`;
         }
 
+        // Store an array with names of selected states
         lassoStates = [];
         lassoStates.push(selected.map((d) => d.state));
 
-        let lassoData = attribute_data_all_years
-          .filter((d) => lassoStates[0].includes(d.State)) // Check if the state is in the selected states
-          .map((d) => ({
-            State: d.State,
-            Year: d.Year,
-            Values: d.values,
-          }));
-
-        // Draws Line Graph when lasso data has valuess
-        if (lassoData.length > 0) {
-          drawLines(lassoData);
-          console.log("Lasso Data:", lassoData);
-        }
+        // Get the state data that are within the lasso
+        getLassoData(selectedAttribute);
       });
   });
 }
 
-// Update Map
-function updateDraw() {
-  gridMap = d3.select("#map");
-  gridMap.selectAll("*").remove();
+// Update Map Graph
+function updateMap() {
+  // Update min and max values based on selected scale and year
   getMinMaxValues(selectedScale, selectedYear);
-  drawMap();
+
+  let mapContainer = document.getElementById("map-svg");
+  let width = mapContainer.offsetWidth - margin.left - margin.right;
+
+  d3.json("state_pos.json").then(function (data) {
+    let states = gridMap
+      .selectAll(".state")
+      .data(Object.entries(data), function (d) {
+        return d[0];
+      });
+
+    const color = d3
+      .scaleLinear()
+      .domain([minValue, maxValue])
+      .range(["#ff0000", "#0000ff"]);
+
+    // Update State Color
+    states
+      .transition()
+      .ease(d3.easeSinInOut)
+      .duration(0)
+      .style("fill", function (d) {
+        let state_value = attribute_data.filter((i) => i.State === d[0])[0];
+        return state_value ? color(state_value.values) : "#ccc";
+      });
+
+    // Update X-axis
+    let legendScale = d3
+      .scaleLinear()
+      .domain([minValue, maxValue])
+      .range([0, width]);
+
+    gridMap
+      .selectAll(".x-axis")
+      .transition()
+      .duration(500)
+      .call(d3.axisBottom(legendScale).ticks(5).tickFormat(d3.format(".2s")));
+  });
 }
 
 // Draw Line Graph
@@ -383,8 +457,6 @@ function drawLines(lassoData) {
   let linesContainer = document.getElementById("lines-svg");
   let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
   let height = linesContainer.offsetHeight - margin.top - margin.bottom;
-
-  lineGraph.selectAll("*").remove();
 
   // Groups all the date based on State Name
   const sumstat = d3.group(lassoData, (d) => d.State);
@@ -425,7 +497,7 @@ function drawLines(lassoData) {
   // Draw lines
   lineGraph
     .selectAll(".line")
-    .data(sumstat)
+    .data(sumstat, (d) => d[0])
     .join("path")
     .attr("class", "state-lines")
     .attr("fill", "none")
@@ -433,28 +505,35 @@ function drawLines(lassoData) {
     .attr("stroke-width", 2)
     .attr("fill", "transparent")
     .attr("d", (d) => line(d[1]))
-    .attr("transform", `translate(${margin.left}, 0)`);
+    .attr("transform", `translate(${margin.left}, 0)`)
+    .style("opacity", 0)
+    .transition()
+    .duration(500) // Transition when fading in
+    .style("opacity", 1);
 
   // Line Label
   lineGraph
     .selectAll("text.label")
-    .data(sumstat)
+    .data(sumstat, (d) => d[0])
     .join("text")
     .attr("class", "label")
     .attr("x", width + margin.left + 5)
     .attr("y", (d) => {
-      const lastpoint = d[1][12].Values; // Get the values for the last year (2004)
+      const lastpoint = d[1][d[1].length - 1].Values; // Get the values for the last year (2004)
       return y(lastpoint);
     })
     .attr("fill", (d) => color(d[0]))
     .attr("font-size", 10)
     .attr("font-family", "sans-serif")
-    .text((d) => d[0]);
+    .text((d) => d[0])
+    .style("opacity", 0)
+    .transition()
+    .duration(500) // Transition when fading in
+    .style("opacity", 1);
 
   // Create Current Year Marker
   lineGraph
     .append("line")
-    .data(lassoData)
     .attr("class", "line-year")
     .attr("x1", x(new Date(selectedYear, 0, 1)))
     .attr("x2", x(new Date(selectedYear, 0, 1)))
@@ -476,6 +555,7 @@ function drawLines(lassoData) {
 
   lineGraph
     .append("g")
+    .attr("class", "x-axis")
     .attr("transform", `translate(${margin.left}, ${height})`)
     .call(
       d3
@@ -497,7 +577,135 @@ function drawLines(lassoData) {
 
   lineGraph
     .append("g")
+    .attr("class", "y-axis")
     .attr("transform", `translate(${margin.left}, 0)`)
+    .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
+}
+
+// Update Line Graph
+function updateLines(lassoData) {
+  let linesContainer = document.getElementById("lines-svg");
+  let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
+  let height = linesContainer.offsetHeight - margin.top - margin.bottom;
+
+  // Group data by state
+  const sumstat = d3.group(lassoData, (d) => d.State);
+
+  // X-axis
+  const x = d3
+    .scaleTime()
+    .domain([new Date(1992, 0, 1), new Date(2004, 0, 1)])
+    .range([0, width]);
+
+  // Y-axis
+  const y = d3
+    .scaleLinear()
+    .domain([0, d3.max(lassoData, (d) => d.Values)])
+    .range([height, 0]);
+
+  const color = d3
+    .scaleOrdinal()
+    .range([
+      "#e41a1c",
+      "#377eb8",
+      "#4daf4a",
+      "#984ea3",
+      "#ff7f00",
+      "#ffff33",
+      "#a65628",
+      "#f781bf",
+      "#999999",
+    ]);
+
+  // Line generator
+  const line = d3
+    .line()
+    .x((d) => x(new Date(+d.Year, 0, 1)))
+    .y((d) => y(d.Values))
+    .curve(d3.curveCatmullRom);
+
+  // Update lines
+  lineGraph
+    .selectAll(".state-lines")
+    .data(sumstat, (d) => d[0])
+    .join(
+      (enter) =>
+        enter
+          .append("path")
+          .attr("class", "state-lines")
+          .attr("fill", "none")
+          .attr("stroke", (d) => color(d[0]))
+          .attr("transform", `translate(${margin.left}, 0)`)
+          .attr("stroke-width", 2)
+          .attr("d", (d) => line(d[1]))
+          .style("opacity", 0)
+          .transition()
+          .duration(500) // Fade in new lines
+          .style("opacity", 1),
+      (update) =>
+        update // Update existing lines
+          .transition()
+          .duration(500)
+          .attr("d", (d) => line(d[1]))
+          .attr("stroke", (d) => color(d[0])),
+      (exit) =>
+        exit // Fade out lines for unselected states
+          .transition()
+          .duration(500)
+          .style("opacity", 0)
+          .remove()
+    );
+
+  // Update labels
+  lineGraph
+    .selectAll("text.label")
+    .data(sumstat, (d) => d[0])
+    .join(
+      (enter) =>
+        enter
+          .append("text")
+          .attr("class", "label")
+          .attr("x", width + margin.left + 5)
+          .attr("y", (d) => {
+            const lastpoint = d[1][d[1].length - 1].Values; // Get the values for the last year (2004)
+            return y(lastpoint);
+          })
+          .attr("fill", (d) => color(d[0]))
+          .attr("font-size", 10)
+          .attr("font-family", "sans-serif")
+          .text((d) => d[0])
+          .style("opacity", 0)
+          .transition()
+          .duration(500) // Fade in labels
+          .style("opacity", 1),
+      (update) =>
+        update // Update labels
+          .transition()
+          .duration(500)
+          .attr("y", (d) => {
+            const lastpoint = d[1][d[1].length - 1].Values; // Get the values for the last year (2004)
+            return y(lastpoint);
+          })
+          .attr("fill", (d) => color(d[0])),
+      (exit) =>
+        exit // Fade out labels for unselected states
+          .transition()
+          .duration(500)
+          .style("opacity", 0)
+          .remove()
+    );
+
+  // Update Y-axis and label
+  lineGraph
+    .selectAll(".y-label")
+    .transition()
+    .duration(500)
+    .text(selectedAttribute + " ($)");
+
+  lineGraph
+    .selectAll(".y-axis")
+    .transition()
+    .duration(500)
     .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
 }
 
@@ -507,41 +715,35 @@ function updateCurrentYearMarker() {
   let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
   let height = linesContainer.offsetHeight - margin.top - margin.bottom;
 
-  lineGraph.select(".line-year").remove();
-
   const x = d3
     .scaleTime()
     .domain([new Date(1992, 0, 1), new Date(2004, 0, 1)])
     .range([0, width]);
 
-  lineGraph
-    .append("line")
-    .attr("class", "line-year")
-    .attr("x1", x(new Date(selectedYear, 0, 1)))
-    .attr("x2", x(new Date(selectedYear, 0, 1)))
-    .attr("y2", height)
-    .attr("y1", 0)
-    .style("stroke", "white")
-    .style("stroke-width", 2)
-    .attr("transform", `translate(${margin.left}, 0)`);
-}
+  let yearLine = lineGraph.select(".line-year");
 
-// Get the Min and Max Values based on the selected year or scale
-function getMinMaxValues(selectedScale, selectedYear) {
-  let values = [];
-
-  // Check the state of which scale is active and get all the values accordingly
-  if (selectedScale === "allYear") {
-    values = attribute_data_all_years.map((item) => item.values).flat();
-    console.log(attribute_data_all_years);
+  // Animation when moving marker
+  if (!yearLine.empty()) {
+    yearLine
+      .transition()
+      .ease(d3.easeSinInOut)
+      .duration(250)
+      .attr("x1", x(new Date(selectedYear, 0, 1)))
+      .attr("x2", x(new Date(selectedYear, 0, 1)));
   } else {
-    let filtered_data = attribute_data.filter(
-      (item) => item.Year === String(selectedYear)
-    );
-    values = filtered_data.map((item) => item.values).flat();
+    lineGraph
+      .append("line")
+      .attr("class", "line-year")
+      .attr("x1", x(new Date(selectedYear, 0, 1)))
+      .attr("x2", x(new Date(selectedYear, 0, 1)))
+      .attr("y2", height)
+      .attr("y1", 0)
+      .style("stroke", "white")
+      .style("stroke-width", 2)
+      .attr("transform", `translate(${margin.left}, 0)`)
+      .style("opacity", 0)
+      .transition()
+      .duration(500)
+      .style("opacity", 1);
   }
-
-  // Update min and max Values
-  minValue = Math.min(...values);
-  maxValue = Math.max(...values);
 }
