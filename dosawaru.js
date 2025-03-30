@@ -473,8 +473,7 @@ function updateMap(states, width) {
   // Update state color
   states
     .transition()
-    .ease(d3.easeSinInOut)
-    .duration(100)
+    .duration(250)
     .style("fill", function (d) {
       const state_value = attribute_data.filter((i) => i.State === d[0])[0];
       return state_value ? color(state_value.values) : "#ccc";
@@ -518,6 +517,7 @@ function drawLines(width, height, sumstat, x, y, color, line) {
     .data(sumstat, (d) => d[0])
     .join("text")
     .attr("class", "label")
+    .style("user-select", "none")
     .attr("x", width + margin.left + 5)
     .attr("y", (d) => {
       const lastpoint = d[1][d[1].length - 1].Values; // Get the values for the last year (2004)
@@ -542,10 +542,12 @@ function drawLines(width, height, sumstat, x, y, color, line) {
     .attr("y", height + margin.top + 10)
     .attr("text-anchor", "middle")
     .style("font-size", "12px")
+    .attr("fill", "white")
     .text("Year");
 
   lineGraph
     .append("g")
+    .style("user-select", "none")
     .attr("class", "x-axis")
     .attr("transform", `translate(${margin.left}, ${height})`)
     .call(
@@ -561,6 +563,7 @@ function drawLines(width, height, sumstat, x, y, color, line) {
     .attr("class", "y-label")
     .attr("x", -height / 2)
     .attr("y", 10)
+    .attr("fill", "white")
     .attr("text-anchor", "middle")
     .style("font-size", "12px")
     .attr("transform", "rotate(-90)")
@@ -569,6 +572,7 @@ function drawLines(width, height, sumstat, x, y, color, line) {
   lineGraph
     .append("g")
     .attr("class", "y-axis")
+    .style("user-select", "none")
     .attr("transform", `translate(${margin.left}, 0)`)
     .call(d3.axisLeft(y).ticks(10).tickFormat(d3.format(".2s")));
 }
@@ -694,6 +698,32 @@ function updateCurrentYearMarker() {
       .remove();
   }
 
+  // Add click event to line graph
+  lineGraph.on("click", function (e) {
+    const [mouseX] = d3.pointer(e);
+
+    // Calculate the the year clicked on the line graph
+    const clickedDate = x.invert(mouseX - margin.left / 2);
+    const clickedYear = clickedDate.getFullYear();
+
+    // Ensure that the year is within the range and correct scale
+    if (
+      clickedYear >= 1992 &&
+      clickedYear <= 2004 &&
+      selectedScale !== "allYear"
+    ) {
+      // Update selected year, slider, and display
+      selectedYear = clickedYear;
+      slider.value = selectedYear;
+      yearDisplay.innerHTML = selectedYear;
+
+      // Update marker, attribute data, and map
+      updateCurrentYearMarker();
+      getAttributeData(selectedYear, selectedAttribute);
+      getMapData();
+    }
+  });
+
   if (isPlaying && selectedScale !== "allYear") {
     yearLine
       .transition()
@@ -715,6 +745,7 @@ function updateCurrentYearMarker() {
       });
   }
 
+  // Draw marker
   function drawMarker() {
     lineGraph
       .append("line")
@@ -732,12 +763,14 @@ function updateCurrentYearMarker() {
       .style("opacity", 1);
   }
 
+  // Disable control panel
   function disableControlPanel() {
     const controlPanel = document.getElementById("control-panel");
     const elements = controlPanel.querySelectorAll("input, select, button");
     elements.forEach((x) => (x.disabled = true));
   }
 
+  // Enable control panel
   function enableControlPanel() {
     const controlPanel = document.getElementById("control-panel");
     const elements = controlPanel.querySelectorAll("input, select, button");

@@ -2,6 +2,8 @@ body {
   height: 100%;
   width: 100%;
   margin: 0;
+  background-color: #121212;
+  color: #e0e0e0;
 }
 
 svg {
@@ -16,7 +18,7 @@ svg {
   height: 100vh;
   justify-content: center;
   align-items: center;
-  background-color: #616060;
+  background-color: #333333;
   padding: 1rem 0 1rem 0;
 }
 
@@ -40,12 +42,14 @@ svg {
   padding-left: 10px;
   font-weight: bold;
   font-size: 16px;
+  color: #ffffff;
 }
 
 .container .content {
   border: 1px solid #000;
   border-radius: 8px;
-  background-color: rgb(43, 42, 41);
+  background-color: #1e1e1e;
+  border-color: #444444;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -67,6 +71,12 @@ svg {
   text-transform: lowercase;
 }
 
+#attributeDropdown {
+  background-color: #2c2c2c;
+  color: #ffffff;
+  border: 1px solid #444444;
+}
+
 #map {
   padding: 25px;
 }
@@ -74,9 +84,9 @@ svg {
 .lasso {
   fill-rule: evenodd;
   fill-opacity: 0.3;
-  fill: antiquewhite;
   stroke-width: 1.5;
-  stroke: white;
+  fill: #444444;
+  stroke: #ffffff;
 }
 
 #lines {
