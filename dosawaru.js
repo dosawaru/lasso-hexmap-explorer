@@ -37,6 +37,7 @@ let playButton = document.getElementById("playButton");
 let slider = document.getElementById("sliderRange");
 let yearDisplay = document.getElementById("year");
 let toggleButton = document.getElementById("toggle-radio");
+let dropdown = document.getElementById("attributeDropdown");
 
 // Define gridMap and lineGraph
 let gridMap = d3.select("#map");
@@ -69,8 +70,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Dropdown menu with selected attributes
 function dropdownMenu() {
-  let dropdown = document.getElementById("attributeDropdown");
-
+  // Add attributes to dropdown
   fiveAttributes.forEach((attribute) => {
     let option = document.createElement("option");
     option.value = attribute;
@@ -80,6 +80,7 @@ function dropdownMenu() {
 
   dropdown.addEventListener("change", function () {
     selectedAttribute = this.value;
+    // Get the attribute data based on the selected scale
     selectedScale == "currentYear"
       ? getAttributeData(selectedYear, selectedAttribute)
       : getAttributeData_All(selectedAttribute);
@@ -95,6 +96,7 @@ function toggleMenu() {
     if (event.target.name === "typeofScale") {
       selectedScale = event.target.value;
 
+      // Update Line Grah mark
       if (selectedScale === "allYear") {
         slider.disabled = true;
         playButton.disabled = true;
@@ -119,6 +121,7 @@ function toggleMenu() {
 function sliderMenu() {
   yearDisplay.innerHTML = slider.value;
 
+  // Update slider and data based on year
   slider.addEventListener("input", function () {
     selectedYear = this.value;
     yearDisplay.innerHTML = slider.value;
@@ -131,10 +134,9 @@ function sliderMenu() {
 // Play animation
 function playMenu() {
   playButton.addEventListener("click", function () {
-    // Checks to play animation if current not playing and line graph is no empty
+    // Checks if the animation is play and line graph is no empty
     if (!isPlaying && !lineGraph.selectAll(".state-lines").empty()) {
       isPlaying = true;
-      console.log("test");
       updateCurrentYearMarker();
     }
   });
@@ -149,7 +151,6 @@ function getAttributeData(year, attribute) {
       Year: d.Year,
       values: +d[attribute], // Gets the values of the selected attribute and converts to a num
     }));
-  // console.log(attribute_data);
 }
 
 // Get the data for the selected attribute and all years
@@ -159,7 +160,6 @@ function getAttributeData_All(attribute) {
     Year: d.Year,
     values: +d[attribute],
   }));
-  // console.log(attribute_data_all_years);
 }
 
 // Get the Min and Max Values based on the selected year or scale
@@ -169,7 +169,6 @@ function getMinMaxValues(selectedScale, selectedYear) {
   // Check the state of which scale is active and get all the values accordingly
   if (selectedScale === "allYear") {
     values = attribute_data_all_years.map((item) => item.values).flat();
-    console.log("test");
   } else {
     let filtered_data = attribute_data.filter(
       (item) => item.Year === String(selectedYear)
@@ -206,15 +205,23 @@ function getMapData() {
     .domain([minValue, maxValue])
     .range([0, width]);
 
-  // Draws map graph if empty, otherwise updates map graph
-  if (!mapGraphDrawnStatus) {
-    d3.json("state_pos.json").then((data) =>
-      drawMap(data, width, cellsize, height, color, legendScale)
-    );
-    mapGraphDrawnStatus = true;
-  } else {
-    d3.json("state_pos.json").then((data) => updateMap(data, width));
-  }
+  // Loads the state_pos.json file
+  d3.json("state_pos.json").then((data) => {
+    // Bind data to state labels
+    const states = gridMap
+      .selectAll(".state")
+      .data(Object.entries(data), function (d) {
+        return d[0];
+      });
+
+    // Draw map graph initially, otherwise updates map graph
+    if (!mapGraphDrawnStatus) {
+      drawMap(states, data, width, cellsize, height, color, legendScale);
+      mapGraphDrawnStatus = true;
+    } else {
+      updateMap(states, width);
+    }
+  });
 }
 
 // Get the Lassso data (state, year, values) based on the selected attribute and Line Graph general data
@@ -229,6 +236,7 @@ function getLassoData(selectedAttribute) {
       Values: d.values,
     }));
 
+  // Define width and height
   let linesContainer = document.getElementById("lines-svg");
   let width = linesContainer.offsetWidth - margin.left - margin.right - 100;
   let height = linesContainer.offsetHeight - margin.top - margin.bottom;
@@ -248,6 +256,7 @@ function getLassoData(selectedAttribute) {
     .domain([0, d3.max(lassoData, (d) => d.Values)])
     .range([height, 0]);
 
+  // Set color range
   const color = d3
     .scaleOrdinal()
     .range([
@@ -269,8 +278,8 @@ function getLassoData(selectedAttribute) {
     .y((d) => y(d.Values))
     .curve(d3.curveCatmullRom);
 
-  // Draws lines graph if empty and lassoData has data, otherwise updates line graph
-  if (lassoData.length > 0 && !lineGraphDrawnStatus) {
+  // Draws lines graph initially, otherwise updates line graph
+  if (!lineGraphDrawnStatus) {
     drawLines(width, height, sumstat, x, y, color, line);
     lineGraphDrawnStatus = true;
   } else {
@@ -279,14 +288,7 @@ function getLassoData(selectedAttribute) {
 }
 
 // Draws Map Graph
-function drawMap(data, width, cellsize, height, color, legendScale) {
-  // Loads the state_pos.json file
-  const states = gridMap
-    .selectAll(".state")
-    .data(Object.entries(data), function (d) {
-      return d[0];
-    });
-
+function drawMap(states, data, width, cellsize, height, color, legendScale) {
   // Draw states
   states
     .enter()
@@ -303,17 +305,18 @@ function drawMap(data, width, cellsize, height, color, legendScale) {
     .attr("height", cellsize)
     .style("fill", function (d) {
       const state_value = attribute_data.filter((i) => i.State === d[0])[0]; // Filter the attribute data based on the current state
-      return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute
+      return state_value ? color(state_value.values) : "#ccc"; // Return the color based on the value of the attribute, defualt grey if no values found
     })
     .attr("stroke", "white");
 
-  // Draw state labels
+  // Bind data to state labels
   const text = gridMap
     .selectAll(".state-label")
     .data(Object.entries(data), function (d) {
       return d[0];
     });
 
+  // Draw state labels
   text
     .enter()
     .append("text")
@@ -364,6 +367,7 @@ function drawMap(data, width, cellsize, height, color, legendScale) {
     .style("fill", "url(#gradient)")
     .attr("transform", "translate(0," + legendHeight + ")");
 
+  // Gradient axis
   const axisBottom = d3
     .axisBottom(legendScale)
     .ticks(5)
@@ -403,7 +407,7 @@ function drawMap(data, width, cellsize, height, color, legendScale) {
   gridMap
     // Lasso Start
     .on("pointerdown", function (e) {
-      // Disable lasso if playing
+      // Disable lasso if animation is playing
       if (!isPlaying) {
         isDrawing = true;
         polygon = [];
@@ -456,15 +460,9 @@ function drawMap(data, width, cellsize, height, color, legendScale) {
 }
 
 // Update Map Graph
-function updateMap(data, width) {
+function updateMap(states, width) {
   // Update min and max values based on selected scale and year
   getMinMaxValues(selectedScale, selectedYear);
-
-  const states = gridMap
-    .selectAll(".state")
-    .data(Object.entries(data), function (d) {
-      return d[0];
-    });
 
   // Update color domain
   const color = d3
@@ -476,7 +474,7 @@ function updateMap(data, width) {
   states
     .transition()
     .ease(d3.easeSinInOut)
-    .duration(0)
+    .duration(100)
     .style("fill", function (d) {
       const state_value = attribute_data.filter((i) => i.State === d[0])[0];
       return state_value ? color(state_value.values) : "#ccc";
