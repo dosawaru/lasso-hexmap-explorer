@@ -710,7 +710,8 @@ function updateCurrentYearMarker() {
     if (
       clickedYear >= 1992 &&
       clickedYear <= 2004 &&
-      selectedScale !== "allYear"
+      selectedScale !== "allYear" &&
+      !isPlaying
     ) {
       // Update selected year, slider, and display
       selectedYear = clickedYear;
